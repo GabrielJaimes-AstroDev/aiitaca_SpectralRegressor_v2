@@ -1162,7 +1162,7 @@ def main():
                             st.download_button(
                                 label="📥 Download results as CSV",
                                 data=csv,
-                                file_name=f"spectrum_predictions_{filter_name}.csv",
+                                file_name=f"spectrum_predictions_{selected_filter}.csv",
                                 mime="text/csv"
                             )
                         else:
@@ -1198,7 +1198,7 @@ def main():
                         st.download_button(
                             label="📥 Download summary plot",
                             data=buf,
-                            file_name=f"summary_predictions_{filter_name}.png",
+                            file_name=f"summary_predictions_{selected_filter}.png",
                             mime="image/png"
                         )
                     
@@ -1232,9 +1232,9 @@ def main():
                                 st.download_button(
                                     label=f"📥 Download {label} plot",
                                     data=buf,
-                                    file_name=f"prediction_{param}_{filter_name}.png",
+                                    file_name=f"prediction_{param}_{selected_filter}.png",
                                     mime="image/png",
-                                    key=f"download_{param}_{filter_name}"
+                                    key=f"download_{param}_{selected_filter}"
                                 )
                             else:
                                 st.warning(f"No predictions available for {label}")
@@ -1261,7 +1261,7 @@ def main():
                         st.download_button(
                             label="📥 Download combined plot",
                             data=buf,
-                            file_name=f"combined_predictions_{filter_name}.png",
+                            file_name=f"combined_predictions_{selected_filter}.png",
                             mime="image/png"
                         )
     else:
@@ -1289,4 +1289,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
