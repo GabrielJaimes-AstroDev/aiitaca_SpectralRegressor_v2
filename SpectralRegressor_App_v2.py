@@ -1140,167 +1140,161 @@ def main():
                     mime="image/png"
                 )
             
-            # Process each filtered spectrum
-            all_results = {}
-            
-            # Create tabs for each filtered spectrum
+            # Selección de espectro filtrado
             filter_names = list(st.session_state.filtered_spectra.keys())
-            tabs = st.tabs([f"Filter: {name}" for name in filter_names])
-            
-            for idx, (filter_name, tab) in enumerate(zip(filter_names, tabs)):
-                with tab:
-                    spectrum_path = st.session_state.filtered_spectra[filter_name]
+            selected_filter = st.selectbox(
+                "Select a filtered spectrum for analysis",
+                filter_names,
+                format_func=lambda x: x
+            )
+
+            spectrum_path = st.session_state.filtered_spectra[selected_filter]
+            with st.spinner(f"Processing {selected_filter}..."):
+                results = process_spectrum(spectrum_path, models)
+                if results is None:
+                    st.error(f"Error processing the filtered spectrum: {selected_filter}")
+                else:
+                    # Aquí puedes mostrar los subtabs y resultados como antes,
+                    # pero solo para el espectro seleccionado
+                    st.header(f"📊 Prediction Results for {selected_filter}")
+
+                    subtab1, subtab2, subtab3, subtab4 = st.tabs(["Summary", "Model Performance", "Individual Plots", "Combined Plot"])
                     
-                    with st.spinner(f"Processing {filter_name}..."):
-                        results = process_spectrum(spectrum_path, models)
+                    with subtab1:
+                        st.subheader("Prediction Summary")
                         
-                        if results is None:
-                            st.error(f"Error processing the filtered spectrum: {filter_name}")
-                            continue
-                        
-                        all_results[filter_name] = results
-                        
-                        # Display results
-                        st.header(f"📊 Prediction Results for {filter_name}")
-                        
-                        # Create subtabs for different visualizations
-                        subtab1, subtab2, subtab3, subtab4 = st.tabs(["Summary", "Model Performance", "Individual Plots", "Combined Plot"])
-                        
-                        with subtab1:
-                            st.subheader("Prediction Summary")
-                            
-                            # Create summary table (filtered by selected models)
-                            summary_data = []
-                            for param, label in zip(results['param_names'], results['param_labels']):
-                                if param in results['predictions']:
-                                    param_preds = results['predictions'][param]
-                                    param_uncerts = results['uncertainties'].get(param, {})
-                                    
-                                    for model_name, pred_value in param_preds.items():
-                                        if model_name not in st.session_state.selected_models:
-                                            continue
-                                            
-                                        uncert_value = param_uncerts.get(model_name, np.nan)
-                                        summary_data.append({
-                                            'Parameter': label,
-                                            'Model': model_name,
-                                            'Prediction': pred_value,
-                                            'Uncertainty': uncert_value if not np.isnan(uncert_value) else 'N/A',
-                                            'Units': get_units(param),
-                                            'Relative_Error_%': (uncert_value / abs(pred_value) * 100) if pred_value != 0 and not np.isnan(uncert_value) else np.nan
-                                        })
-                            
-                            if summary_data:
-                                summary_df = pd.DataFrame(summary_data)
-                                st.dataframe(summary_df, use_container_width=True)
+                        # Create summary table (filtered by selected models)
+                        summary_data = []
+                        for param, label in zip(results['param_names'], results['param_labels']):
+                            if param in results['predictions']:
+                                param_preds = results['predictions'][param]
+                                param_uncerts = results['uncertainties'].get(param, {})
                                 
-                                # Download results as CSV
-                                csv = summary_df.to_csv(index=False)
+                                for model_name, pred_value in param_preds.items():
+                                    if model_name not in st.session_state.selected_models:
+                                        continue
+                                    
+                                    uncert_value = param_uncerts.get(model_name, np.nan)
+                                    summary_data.append({
+                                        'Parameter': label,
+                                        'Model': model_name,
+                                        'Prediction': pred_value,
+                                        'Uncertainty': uncert_value if not np.isnan(uncert_value) else 'N/A',
+                                        'Units': get_units(param),
+                                        'Relative_Error_%': (uncert_value / abs(pred_value) * 100) if pred_value != 0 and not np.isnan(uncert_value) else np.nan
+                                    })
+                        
+                        if summary_data:
+                            summary_df = pd.DataFrame(summary_data)
+                            st.dataframe(summary_df, use_container_width=True)
+                            
+                            # Download results as CSV
+                            csv = summary_df.to_csv(index=False)
+                            st.download_button(
+                                label="📥 Download results as CSV",
+                                data=csv,
+                                file_name=f"spectrum_predictions_{selected_filter}.csv",
+                                mime="text/csv"
+                            )
+                        else:
+                            st.warning("No predictions were generated for the selected models")
+                        
+                        # Add summary plot with expected values
+                        st.subheader("Summary Plot with Expected Values")
+                        
+                        # Check if any expected values are provided
+                        has_expected_values = any(
+                            st.session_state.expected_values[param]['value'] is not None 
+                            for param in param_names
+                        )
+                        
+                        if has_expected_values:
+                            st.info("Red line shows expected value with shaded uncertainty range")
+                        
+                        summary_fig = create_summary_plot(
+                            results['predictions'],
+                            results['uncertainties'],
+                            results['param_names'],
+                            results['param_labels'],
+                            st.session_state.selected_models,
+                            st.session_state.expected_values if has_expected_values else None
+                        )
+                        st.pyplot(summary_fig)
+                        
+                        # Option to download the summary plot
+                        buf = BytesIO()
+                        summary_fig.savefig(buf, format="png", dpi=300, bbox_inches='tight')
+                        buf.seek(0)
+                        
+                        st.download_button(
+                            label="📥 Download summary plot",
+                            data=buf,
+                            file_name=f"summary_predictions_{selected_filter}.png",
+                            mime="image/png"
+                        )
+                    
+                    with subtab2:
+                        st.subheader("📈 Model Performance Overview")
+                        st.info("Showing typical parameter ranges for each model type")
+                        create_model_performance_plots(models, st.session_state.selected_models)
+                    
+                    with subtab3:
+                        st.subheader("Prediction Plots by Parameter")
+                        
+                        # Create individual plots for each parameter
+                        for param, label in zip(results['param_names'], results['param_labels']):
+                            if param in results['predictions'] and results['predictions'][param]:
+                                fig = create_comparison_plot(
+                                    results['predictions'], 
+                                    results['uncertainties'], 
+                                    param, 
+                                    label, 
+                                    models.get('training_stats', {}),
+                                    selected_filter,
+                                    st.session_state.selected_models
+                                )
+                                st.pyplot(fig)
+                                
+                                # Option to download each plot
+                                buf = BytesIO()
+                                fig.savefig(buf, format="png", dpi=300, bbox_inches='tight')
+                                buf.seek(0)
+                                
                                 st.download_button(
-                                    label="📥 Download results as CSV",
-                                    data=csv,
-                                    file_name=f"spectrum_predictions_{filter_name}.csv",
-                                    mime="text/csv"
+                                    label=f"📥 Download {label} plot",
+                                    data=buf,
+                                    file_name=f"prediction_{param}_{selected_filter}.png",
+                                    mime="image/png",
+                                    key=f"download_{param}_{selected_filter}"
                                 )
                             else:
-                                st.warning("No predictions were generated for the selected models")
-                            
-                            # Add summary plot with expected values
-                            st.subheader("Summary Plot with Expected Values")
-                            
-                            # Check if any expected values are provided
-                            has_expected_values = any(
-                                st.session_state.expected_values[param]['value'] is not None 
-                                for param in param_names
-                            )
-                            
-                            if has_expected_values:
-                                st.info("Red line shows expected value with shaded uncertainty range")
-                            
-                            summary_fig = create_summary_plot(
-                                results['predictions'],
-                                results['uncertainties'],
-                                results['param_names'],
-                                results['param_labels'],
-                                st.session_state.selected_models,
-                                st.session_state.expected_values if has_expected_values else None
-                            )
-                            st.pyplot(summary_fig)
-                            
-                            # Option to download the summary plot
-                            buf = BytesIO()
-                            summary_fig.savefig(buf, format="png", dpi=300, bbox_inches='tight')
-                            buf.seek(0)
-                            
-                            st.download_button(
-                                label="📥 Download summary plot",
-                                data=buf,
-                                file_name=f"summary_predictions_{filter_name}.png",
-                                mime="image/png"
-                            )
+                                st.warning(f"No predictions available for {label}")
+                    
+                    with subtab4:
+                        st.subheader("Combined Prediction Plot")
                         
-                        with subtab2:
-                            st.subheader("📈 Model Performance Overview")
-                            st.info("Showing typical parameter ranges for each model type")
-                            create_model_performance_plots(models, st.session_state.selected_models)
+                        # Create combined plot
+                        fig = create_combined_plot(
+                            results['predictions'],
+                            results['uncertainties'],
+                            results['param_names'],
+                            results['param_labels'],
+                            selected_filter,
+                            st.session_state.selected_models
+                        )
+                        st.pyplot(fig)
                         
-                        with subtab3:
-                            st.subheader("Prediction Plots by Parameter")
-                            
-                            # Create individual plots for each parameter
-                            for param, label in zip(results['param_names'], results['param_labels']):
-                                if param in results['predictions'] and results['predictions'][param]:
-                                    fig = create_comparison_plot(
-                                        results['predictions'], 
-                                        results['uncertainties'], 
-                                        param, 
-                                        label, 
-                                        models.get('training_stats', {}),
-                                        filter_name,
-                                        st.session_state.selected_models
-                                    )
-                                    st.pyplot(fig)
-                                    
-                                    # Option to download each plot
-                                    buf = BytesIO()
-                                    fig.savefig(buf, format="png", dpi=300, bbox_inches='tight')
-                                    buf.seek(0)
-                                    
-                                    st.download_button(
-                                        label=f"📥 Download {label} plot",
-                                        data=buf,
-                                        file_name=f"prediction_{param}_{filter_name}.png",
-                                        mime="image/png",
-                                        key=f"download_{param}_{filter_name}"
-                                    )
-                                else:
-                                    st.warning(f"No predictions available for {label}")
+                        # Option to download the combined plot
+                        buf = BytesIO()
+                        fig.savefig(buf, format="png", dpi=300, bbox_inches='tight')
+                        buf.seek(0)
                         
-                        with subtab4:
-                            st.subheader("Combined Prediction Plot")
-                            
-                            # Create combined plot
-                            fig = create_combined_plot(
-                                results['predictions'],
-                                results['uncertainties'],
-                                results['param_names'],
-                                results['param_labels'],
-                                filter_name,
-                                st.session_state.selected_models
-                            )
-                            st.pyplot(fig)
-                            
-                            # Option to download the combined plot
-                            buf = BytesIO()
-                            fig.savefig(buf, format="png", dpi=300, bbox_inches='tight')
-                            buf.seek(0)
-                            
-                            st.download_button(
-                                label="📥 Download combined plot",
-                                data=buf,
-                                file_name=f"combined_predictions_{filter_name}.png",
-                                mime="image/png"
-                            )
+                        st.download_button(
+                            label="📥 Download combined plot",
+                            data=buf,
+                            file_name=f"combined_predictions_{selected_filter}.png",
+                            mime="image/png"
+                        )
     
     else:
         # Show instructions if files haven't been uploaded
