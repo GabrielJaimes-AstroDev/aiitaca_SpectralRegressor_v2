@@ -1142,14 +1142,21 @@ def main():
             
             # Procesar solo el espectro filtrado seleccionado
             filter_names = list(st.session_state.filtered_spectra.keys())
-            selected_filter = st.sidebar.selectbox(
-                "Selecciona un espectro filtrado para analizar",
-                filter_names,
-                index=filter_names.index(st.session_state.selected_filter) if st.session_state.selected_filter in filter_names else 0,
-                key='selected_filter'
-            )
-
-            spectrum_path = st.session_state.filtered_spectra[selected_filter]
+            if filter_names:
+                selected_filter = st.sidebar.selectbox(
+                    "Selecciona un espectro filtrado para analizar",
+                    filter_names,
+                    index=filter_names.index(st.session_state.selected_filter) if st.session_state.selected_filter in filter_names else 0,
+                    key='selected_filter'
+                )
+                spectrum_path = st.session_state.filtered_spectra.get(selected_filter)
+                if spectrum_path is None:
+                    st.error("El espectro filtrado seleccionado no existe.")
+                    return
+            else:
+                st.warning("No hay espectros filtrados disponibles. Por favor, genera los espectros filtrados primero.")
+                return
+            
             with st.spinner(f"Procesando {selected_filter}..."):
                 results = process_spectrum(spectrum_path, models)
                 if results is None:
