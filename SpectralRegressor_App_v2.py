@@ -1286,3 +1286,7 @@ def main():
         7. **Enter expected values (optional)**: Provide expected values and uncertainties for comparison
         8. **Process**: Click the 'Process Spectrum' button to get predictions for all filtered spectra
         """)
+
+if __name__ == "__main__":
+    main()
+
