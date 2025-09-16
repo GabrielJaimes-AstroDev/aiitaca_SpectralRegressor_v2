@@ -975,8 +975,8 @@ def main():
                 
                 selected_sigma = st.selectbox(
                     "Sigma",
-                    options=sigmas,
-                    index=0 if 0.0 in sigmas else 0,
+                    options=sigmas if sigmas else [0.0],
+                    index=0,
                     help="Select sigma parameter from available filters"
                 )
                 
