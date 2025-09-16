@@ -1148,7 +1148,6 @@ def main():
                 index=filter_names.index(st.session_state.selected_filter) if st.session_state.selected_filter in filter_names else 0,
                 key='selected_filter'
             )
-            st.session_state.selected_filter = selected_filter
 
             spectrum_path = st.session_state.filtered_spectra[selected_filter]
             with st.spinner(f"Procesando {selected_filter}..."):
@@ -1335,8 +1334,6 @@ def main():
         format_func=lambda x: x,
         key='selected_filter'
     )
-
-    # Ahora puedes usar st.session_state.selected_filter para mantener la selección
 
 if __name__ == "__main__":
     main()
