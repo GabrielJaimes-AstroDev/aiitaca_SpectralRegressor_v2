@@ -1324,7 +1324,26 @@ def main():
         7. **Enter expected values (optional)**: Provide expected values and uncertainties for comparison
         8. **Process**: Click the 'Process Spectrum' button to get predictions for all filtered spectra
         """)
+    
+    # Filter selection for analysis
+    st.sidebar.subheader("🔍 Filter Selection")
+    
+    # Get all filter names
+    filter_names = list(st.session_state.filtered_spectra.keys())
+    
+    # Initialize selected filter in session state if not exists
+    if 'selected_filter' not in st.session_state:
+        st.session_state.selected_filter = filter_names[0] if filter_names else None
 
+    selected_filter = st.selectbox(
+        "Select a filtered spectrum for analysis",
+        filter_names,
+        index=filter_names.index(st.session_state.selected_filter) if st.session_state.selected_filter in filter_names else 0,
+        format_func=lambda x: x,
+        key='selected_filter'
+    )
+
+    # Ahora puedes usar st.session_state.selected_filter para mantener la selección
 
 if __name__ == "__main__":
     main()
