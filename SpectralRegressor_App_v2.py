@@ -360,7 +360,8 @@ def create_model_performance_plots(models, selected_models):
             label=f"📥 Download {model_type} performance plot",
             data=buf,
             file_name=f"{model_type.lower()}_performance.png",
-            mime="image/png"
+            mime="image/png",
+            key=f"download_{model_type}_{filter_name}"
         )
 
 def process_spectrum(spectrum_file, models, target_length=64607):
