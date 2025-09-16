@@ -1205,11 +1205,10 @@ def main():
                     with subtab2:
                         st.subheader("📈 Model Performance Overview")
                         st.info("Showing typical parameter ranges for each model type")
-                        create_model_performance_plots(models, st.session_state.selected_models, filter_name)
+                        create_model_performance_plots(models, st.session_state.selected_models, selected_filter)
                     
                     with subtab3:
                         st.subheader("Prediction Plots by Parameter")
-                        
                         # Create individual plots for each parameter
                         for param, label in zip(results['param_names'], results['param_labels']):
                             if param in results['predictions'] and results['predictions'][param]:
@@ -1219,7 +1218,7 @@ def main():
                                     param, 
                                     label, 
                                     models.get('training_stats', {}),
-                                    filter_name,
+                                    selected_filter,  # <-- use selected_filter here
                                     st.session_state.selected_models
                                 )
                                 st.pyplot(fig)
@@ -1248,7 +1247,7 @@ def main():
                             results['uncertainties'],
                             results['param_names'],
                             results['param_labels'],
-                            filter_name,
+                            selected_filter,  # <-- use selected_filter here
                             st.session_state.selected_models
                         )
                         st.pyplot(fig)
