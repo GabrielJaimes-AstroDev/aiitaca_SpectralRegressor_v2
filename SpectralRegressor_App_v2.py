@@ -266,7 +266,7 @@ def create_pca_variance_plot(ipca_model):
     plt.tight_layout()
     return fig
 
-def create_model_performance_plots(models, selected_models):
+def create_model_performance_plots(models, selected_models, filter_name):
     """Create True Value vs Predicted Value plots for each model type"""
     param_names = ['logn', 'tex', 'velo', 'fwhm']
     model_types = ['Randomforest', 'Gradientboosting', 'Svr', 'Gaussianprocess']
@@ -1243,7 +1243,7 @@ def main():
                         with subtab2:
                             st.subheader("📈 Model Performance Overview")
                             st.info("Showing typical parameter ranges for each model type")
-                            create_model_performance_plots(models, st.session_state.selected_models)
+                            create_model_performance_plots(models, st.session_state.selected_models, filter_name)
                         
                         with subtab3:
                             st.subheader("Prediction Plots by Parameter")
