@@ -921,7 +921,7 @@ def main():
             'sigma': 0.0
         }
     
-    # Sidebar for file upload
+    # Sidebar para upload y parámetros (sin el botón de procesar)
     with st.sidebar:
         st.header("📁 Upload Files")
         
@@ -1074,28 +1074,28 @@ def main():
                     key=f"exp_{param}_error"
                 )
                 st.session_state.expected_values[param]['error'] = error if error != 0 else None
-        
-        # Process button
-        process_btn = st.button("Process Spectrum", type="primary", 
-                               disabled=(models_zip is None or spectrum_file is None or not st.session_state.filtered_spectra))
     
-    # Filter selection for analysis
-    st.sidebar.subheader("🔍 Filter Selection")
+    # Panel principal
+    st.markdown("""
+    This application predicts physical parameters of astronomical spectra using machine learning models.
+    Upload a spectrum file and trained models to get predictions.
+    """)
+
+    # Mover el selector de espectros filtrados aquí:
     filter_names = list(st.session_state.filtered_spectra.keys())
     if 'selected_filter' not in st.session_state:
         st.session_state.selected_filter = filter_names[0] if filter_names else None
 
-    selected_filter = st.sidebar.selectbox(
+    selected_filter = st.selectbox(
         "Select a filtered spectrum for analysis",
         filter_names,
         index=filter_names.index(st.session_state.selected_filter) if st.session_state.selected_filter in filter_names else 0,
         format_func=lambda x: x,
-        key='selected_filter'
+        key='selected_filter_main'
     )
 
-    # Main content
     if models_zip is not None and spectrum_file is not None and st.session_state.filtered_spectra:
-        # Only show process button if a filter is selected
+        # Solo mostrar el botón de procesar en el panel principal
         process_btn = st.button("Process Selected Spectrum", type="primary", 
                                disabled=(models_zip is None or spectrum_file is None or not selected_filter))
         if process_btn and selected_filter:
