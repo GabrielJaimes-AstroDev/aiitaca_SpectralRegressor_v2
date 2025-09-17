@@ -16,7 +16,6 @@ from sklearn.svm import SVR
 from sklearn.gaussian_process import GaussianProcessRegressor
 import gc
 from glob import glob
-import plotly.graph_objects as go
 
 # Set global font settings
 plt.rcParams['font.family'] = 'Times New Roman'
@@ -1038,63 +1037,6 @@ def main():
         key='selected_filter_main'
     )
 
-    if models_zip is not None:
-        # Load models
-        if use_local_models:
-            models, message = load_models_from_zip(models_zip)
-        else:
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as tmp_file:
-                tmp_file.write(models_zip.getvalue())
-                tmp_path = tmp_file.name
-            models, message = load_models_from_zip(tmp_path)
-            os.unlink(tmp_path)
-
-        if models is None:
-            st.error(message)
-            return
-
-        st.success(message)
-
-        # --- PANEL: Model Information ---
-        with st.expander("Model Information", expanded=True):
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("PCA Components", models['ipca'].n_components_)
-            with col2:
-                cumulative_variance = np.cumsum(models['ipca'].explained_variance_ratio_)
-                total_variance = cumulative_variance[-1] if len(cumulative_variance) > 0 else 0
-                st.metric("Variance Explained", f"{total_variance*100:.1f}%")
-            with col3:
-                total_models = sum(len(models['all_models'][param]) for param in models['all_models'])
-                st.metric("Total Models", total_models)
-
-        # --- LOADED MODELS ---
-        st.subheader("Loaded Models")
-        param_names = ['logn', 'tex', 'velo', 'fwhm']
-        for param in param_names:
-            if param in models['all_models']:
-                model_count = len(models['all_models'][param])
-                st.write(f"{param}: {model_count} model(s) loaded")
-
-        # --- PCA VARIANCE ANALYSIS ---
-        st.subheader("📊 PCA Variance Analysis")
-        pca_fig = create_pca_variance_plot(models['ipca'])
-        st.pyplot(pca_fig)
-
-        buf = BytesIO()
-        pca_fig.savefig(buf, format="png", dpi=300, bbox_inches='tight')
-        buf.seek(0)
-        st.download_button(
-            label="📥 Download PCA variance plot",
-            data=buf,
-            file_name="pca_variance_analysis.png",
-            mime="image/png"
-        )
-
-        # --- INTERACTIVE PCA SPACE BAR PLOT (empty until spectrum processed) ---
-        st.subheader("Spectrum in PCA Space (Interactive Bar Plot)")
-        st.info("This plot will appear after processing a filtered spectrum.")
-
     if models_zip is not None and spectrum_file is not None and st.session_state.filtered_spectra:
         process_btn = st.button("Process Selected Spectrum", type="primary", 
                                disabled=(models_zip is None or spectrum_file is None or not selected_filter))
@@ -1165,23 +1107,17 @@ def main():
 
                     st.plotly_chart(fig, use_container_width=True)
 
-                    st.subheader("Spectrum in PCA Space (Interactive Bar Plot)")
+                    # Show PCA representation of the spectrum
+                    st.subheader("Spectrum in PCA Space")
                     pca_components = results['processed_spectrum']['pca_components'].flatten()
-                    fig_pca_bar = go.Figure()
-                    fig_pca_bar.add_trace(go.Bar(
-                        x=[f"PC {i+1}" for i in range(len(pca_components))],
-                        y=pca_components,
-                        marker_color='purple'
-                    ))
-                    fig_pca_bar.update_layout(
-                        title="Spectrum Representation in PCA Space",
-                        xaxis_title="PCA Component",
-                        yaxis_title="Value",
-                        template="simple_white",
-                        font=dict(family="Times New Roman", size=16, color="black"),
-                        height=400
-                    )
-                    st.plotly_chart(fig_pca_bar, use_container_width=True)
+                    fig_pca, ax_pca = plt.subplots(figsize=(10, 4))
+                    ax_pca.plot(np.arange(1, len(pca_components)+1), pca_components, marker='o', color='purple')
+                    ax_pca.set_xlabel("PCA Component", fontfamily='Times New Roman', fontsize=14)
+                    ax_pca.set_ylabel("Value", fontfamily='Times New Roman', fontsize=14)
+                    ax_pca.set_title("Spectrum Representation in PCA Space", fontfamily='Times New Roman', fontsize=16, fontweight='bold')
+                    ax_pca.grid(alpha=0.3, linestyle='--')
+                    plt.tight_layout()
+                    st.pyplot(fig_pca)
 
                     with st.expander("Model Information", expanded=True):
                         col1, col2, col3 = st.columns(3)
