@@ -1139,11 +1139,19 @@ def main():
                 else:
                     st.header(f"📊 Prediction Results for {selected_filter}")
 
-                    # Plot interactivo del espectro filtrado con estilo formal
+                    # Interactive plot of the filtered spectrum (formal style)
                     filtered_freqs = results['processed_spectrum']['frequencies']
                     filtered_intensities = results['processed_spectrum']['intensities']
 
                     import plotly.graph_objects as go
+
+                    # Use session_state to keep grid toggle persistent
+                    if 'show_grid' not in st.session_state:
+                        st.session_state.show_grid = True
+
+                    # Toggle for grid activation/deactivation
+                    show_grid = st.checkbox("Show grid", value=st.session_state.show_grid, key="show_grid_checkbox")
+                    st.session_state.show_grid = show_grid
 
                     fig = go.Figure()
                     fig.add_trace(go.Scatter(
@@ -1155,21 +1163,26 @@ def main():
                     ))
                     fig.update_layout(
                         title="Filtered Spectrum",
-                        xaxis_title="Frequency (GHz)",
-                        yaxis_title="Intensity (K)",
+                        xaxis_title="<i>Frequency</i> (GHz)",
+                        yaxis_title="<i>Intensity</i> (K)",
                         template="simple_white",
-                        font=dict(family="Times New Roman", size=16),
-                        height=700,
-                        xaxis=dict(showgrid=True, gridcolor='lightgray'),
-                        yaxis=dict(showgrid=True, gridcolor='lightgray')
+                        font=dict(family="Times New Roman", size=16, color="black"),
+                        height=500,
+                        xaxis=dict(
+                            showgrid=show_grid,
+                            gridcolor='lightgray',
+                            titlefont=dict(family="Times New Roman", size=18, color="black"),
+                            tickfont=dict(family="Times New Roman", size=14, color="black"),
+                            color="black"
+                        ),
+                        yaxis=dict(
+                            showgrid=show_grid,
+                            gridcolor='lightgray',
+                            titlefont=dict(family="Times New Roman", size=18, color="black"),
+                            tickfont=dict(family="Times New Roman", size=14, color="black"),
+                            color="black"
+                        )
                     )
-                    fig.update_xaxes(showgrid=True, gridcolor='lightgray')
-                    fig.update_yaxes(showgrid=True, gridcolor='lightgray')
-
-                    # Botón para activar/desactivar grid
-                    show_grid = st.toggle("Show grid", value=True)
-                    fig.update_xaxes(showgrid=show_grid)
-                    fig.update_yaxes(showgrid=show_grid)
 
                     st.plotly_chart(fig, use_container_width=True)
 
