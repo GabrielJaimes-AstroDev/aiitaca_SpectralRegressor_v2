@@ -826,13 +826,15 @@ def apply_filter_to_spectrum(spectrum_path, filter_path, output_dir):
         # Interpolate the original spectrum to filter frequencies
         interp_spec = interp1d(freq_spectrum, intensity_spectrum, kind='cubic', bounds_error=False, fill_value=0)
         spectrum_on_filter = interp_spec(freq_filter)
-        
-        # Apply the filter
-        filtered_freqs = freq_filter[mask]
-        filtered_intensities = spectrum_on_filter[mask]
-        
-        # Clip negative values to zero
-        filtered_intensities = np.clip(filtered_intensities, 0, None)
+
+        # Aplica el filtro: donde el filtro es cero, el valor debe ser 0
+        filtered_intensities = spectrum_on_filter * intensity_filter
+
+        # Si no se permiten valores negativos, recorta a cero
+        if not st.session_state.get("consider_absorption", False):
+            filtered_intensities = np.clip(filtered_intensities, 0, None)
+
+        filtered_freqs = freq_filter
         
         # Create output filename
         base_name = os.path.splitext(os.path.basename(spectrum_path))[0]
