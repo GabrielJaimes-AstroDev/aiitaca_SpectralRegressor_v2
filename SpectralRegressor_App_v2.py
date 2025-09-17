@@ -226,6 +226,7 @@ def get_param_label(param):
     return labels.get(param, param)
 
 def create_pca_variance_plot(ipca_model):
+    """Create PCA variance explained plot"""
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
     
     cumulative_variance = np.cumsum(ipca_model.explained_variance_ratio_)
@@ -251,6 +252,7 @@ def create_pca_variance_plot(ipca_model):
     ax2.set_title('Individual Variance per Component', fontfamily='Times New Roman', fontsize=14, fontweight='bold')
     ax2.grid(True, alpha=0.3)
     
+    # Add text with variance information
     total_variance = cumulative_variance[-1] if n_components > 0 else 0
     plt.figtext(0.5, 0.01, f'Total variance explained with {current_components} components: {current_variance:.3f} ({current_variance*100:.1f}%)', 
                 ha='center', fontfamily='Times New Roman', fontsize=12, 
@@ -1116,6 +1118,38 @@ def main():
                     ax_pca.grid(alpha=0.3, linestyle='--')
                     plt.tight_layout()
                     st.pyplot(fig_pca)
+
+                    with st.expander("Model Information", expanded=True):
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.metric("PCA Components", models['ipca'].n_components_)
+                        with col2:
+                            cumulative_variance = np.cumsum(models['ipca'].explained_variance_ratio_)
+                            total_variance = cumulative_variance[-1] if len(cumulative_variance) > 0 else 0
+                            st.metric("Variance Explained", f"{total_variance*100:.1f}%")
+                        with col3:
+                            total_models = sum(len(models['all_models'][param]) for param in models['all_models'])
+                            st.metric("Total Models", total_models)
+
+                    st.subheader("Loaded Models")
+                    param_names = ['logn', 'tex', 'velo', 'fwhm']
+                    for param in param_names:
+                        if param in models['all_models']:
+                            model_count = len(models['all_models'][param])
+                            st.write(f"{param}: {model_count} model(s) loaded")
+                    st.subheader("📊 PCA Variance Analysis")
+                    pca_fig = create_pca_variance_plot(models['ipca'])
+                    st.pyplot(pca_fig)
+
+                    buf = BytesIO()
+                    pca_fig.savefig(buf, format="png", dpi=300, bbox_inches='tight')
+                    buf.seek(0)
+                    st.download_button(
+                        label="📥 Download PCA variance plot",
+                        data=buf,
+                        file_name="pca_variance_analysis.png",
+                        mime="image/png"
+                    )
 
                     subtab1, subtab2, subtab3, subtab4 = st.tabs(["Summary", "Model Performance", "Individual Plots", "Combined Plot"])
                     with subtab1:
