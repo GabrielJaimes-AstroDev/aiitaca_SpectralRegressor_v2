@@ -1136,6 +1136,30 @@ def main():
                     st.error(f"Error processing the filtered spectrum: {selected_filter}")
                 else:
                     st.header(f"📊 Prediction Results for {selected_filter}")
+
+                    # Plot interactivo del espectro filtrado
+                    filtered_freqs = results['processed_spectrum']['frequencies']
+                    filtered_intensities = results['processed_spectrum']['intensities']
+
+                    import plotly.graph_objects as go
+
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(
+                        x=filtered_freqs,
+                        y=filtered_intensities,
+                        mode='lines',
+                        line=dict(color='blue', width=2),
+                        name='Filtered Spectrum'
+                    ))
+                    fig.update_layout(
+                        title="Filtered Spectrum",
+                        xaxis_title="Frequency",
+                        yaxis_title="Intensity",
+                        template="simple_white",
+                        height=400
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+
                     # Subtabs for visualizations
                     subtab1, subtab2, subtab3, subtab4 = st.tabs(["Summary", "Model Performance", "Individual Plots", "Combined Plot"])
                     with subtab1:
