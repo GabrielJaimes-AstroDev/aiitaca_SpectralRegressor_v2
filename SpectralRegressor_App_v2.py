@@ -1038,84 +1038,269 @@ def main():
     )
 
     if models_zip is not None and spectrum_file is not None and st.session_state.filtered_spectra:
-        # Load models (keep your existing loading logic)
-        if use_local_models:
-            models, message = load_models_from_zip(models_zip)
-        else:
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as tmp_file:
-                tmp_file.write(models_zip.getvalue())
-                tmp_path = tmp_file.name
-            models, message = load_models_from_zip(tmp_path)
-            os.unlink(tmp_path) 
+        process_btn = st.button("Process Selected Spectrum", type="primary", 
+                               disabled=(models_zip is None or spectrum_file is None or not selected_filter))
+        if process_btn and selected_filter:
+            with st.spinner("Loading and processing models..."):
+                # Load models
+                if use_local_models:
+                    models, message = load_models_from_zip(models_zip)
+                else:
+                    with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as tmp_file:
+                        tmp_file.write(models_zip.getvalue())
+                        tmp_path = tmp_file.name
+                    
+                    models, message = load_models_from_zip(tmp_path)
+                    os.unlink(tmp_path) 
+                
+                if models is None:
+                    st.error(message)
+                    return
+                
+                st.success(message)
 
-        if models is None:
-            st.error(message)
-            return
 
-        st.success(message)
+            # Only process the selected filtered spectrum
+            spectrum_path = st.session_state.filtered_spectra[selected_filter]
+            with st.spinner(f"Processing {selected_filter}..."):
+                results = process_spectrum(spectrum_path, models)
+                if results is None:
+                    st.error(f"Error processing the filtered spectrum: {selected_filter}")
+                else:
+                    st.header(f"📊 Prediction Results for {selected_filter}")
 
-        # --- PANEL: Model Information ---
-        with st.expander("Model Information", expanded=True):
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("PCA Components", models['ipca'].n_components_)
-            with col2:
-                cumulative_variance = np.cumsum(models['ipca'].explained_variance_ratio_)
-                total_variance = cumulative_variance[-1] if len(cumulative_variance) > 0 else 0
-                st.metric("Variance Explained", f"{total_variance*100:.1f}%")
-            with col3:
-                total_models = sum(len(models['all_models'][param]) for param in models['all_models'])
-                st.metric("Total Models", total_models)
+                    filtered_freqs = results['processed_spectrum']['frequencies']
+                    filtered_intensities = results['processed_spectrum']['intensities']
 
-        # --- PANEL: Loaded Models ---
-        st.subheader("Loaded Models")
-        param_names = ['logn', 'tex', 'velo', 'fwhm']
-        for param in param_names:
-            if param in models['all_models']:
-                model_count = len(models['all_models'][param])
-                st.write(f"{param}: {model_count} model(s) loaded")
+                    import plotly.graph_objects as go
 
-        # --- PANEL: PCA Variance Analysis ---
-        st.subheader("📊 PCA Variance Analysis")
-        pca_fig = create_pca_variance_plot(models['ipca'])
-        st.pyplot(pca_fig)
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(
+                        x=filtered_freqs,
+                        y=filtered_intensities,
+                        mode='lines',
+                        line=dict(color='blue', width=2),
+                        name='Filtered Spectrum'
+                    ))
+                    fig.update_layout(
+                        title="Filtered Spectrum",
+                        xaxis_title="<i>Frequency</i> (GHz)",
+                        yaxis_title="<i>Intensity</i> (K)",
+                        template="simple_white",
+                        font=dict(family="Times New Roman", size=16, color="black"),
+                        height=500,
+                        xaxis=dict(
+                            showgrid=True,
+                            gridcolor='lightgray',
+                            titlefont=dict(family="Times New Roman", size=18, color="black"),
+                            tickfont=dict(family="Times New Roman", size=14, color="black"),
+                            color="black"
+                        ),
+                        yaxis=dict(
+                            showgrid=True,
+                            gridcolor='lightgray',
+                            titlefont=dict(family="Times New Roman", size=18, color="black"),
+                            tickfont=dict(family="Times New Roman", size=14, color="black"),
+                            color="black"
+                        )
+                    )
 
-        buf = BytesIO()
-        pca_fig.savefig(buf, format="png", dpi=300, bbox_inches='tight')
-        buf.seek(0)
-        st.download_button(
-            label="📥 Download PCA variance plot",
-            data=buf,
-            file_name="pca_variance_analysis.png",
-            mime="image/png"
-        )
+                    st.plotly_chart(fig, use_container_width=True)
 
-        # --- INTERACTIVE PCA SPACE BAR PLOT ---
-        st.subheader("Spectrum in PCA Space (Interactive Bar Chart)")
-        # You need to process one spectrum to get PCA components
-        # Use the first filtered spectrum as preview
-        preview_filter = list(st.session_state.filtered_spectra.keys())[0]
-        preview_path = st.session_state.filtered_spectra[preview_filter]
-        preview_results = process_spectrum(preview_path, models)
-        if preview_results is not None:
-            pca_components = preview_results['processed_spectrum']['pca_components'].flatten()
-            import plotly.graph_objects as go
-            fig_pca_bar = go.Figure()
-            fig_pca_bar.add_trace(go.Bar(
-                x=[f"PC{i+1}" for i in range(len(pca_components))],
-                y=pca_components,
-                marker_color='purple'
-            ))
-            fig_pca_bar.update_layout(
-                title="Spectrum Representation in PCA Space",
-                xaxis_title="PCA Component",
-                yaxis_title="Value",
-                template="simple_white",
-                font=dict(family="Times New Roman", size=16, color="black"),
-                height=400
-            )
-            st.plotly_chart(fig_pca_bar, use_container_width=True)
+                    # Show PCA representation of the spectrum
+                    st.subheader("Spectrum in PCA Space")
+                    pca_components = results['processed_spectrum']['pca_components'].flatten()
+                    fig_pca, ax_pca = plt.subplots(figsize=(10, 4))
+                    ax_pca.plot(np.arange(1, len(pca_components)+1), pca_components, marker='o', color='purple')
+                    ax_pca.set_xlabel("PCA Component", fontfamily='Times New Roman', fontsize=14)
+                    ax_pca.set_ylabel("Value", fontfamily='Times New Roman', fontsize=14)
+                    ax_pca.set_title("Spectrum Representation in PCA Space", fontfamily='Times New Roman', fontsize=16, fontweight='bold')
+                    ax_pca.grid(alpha=0.3, linestyle='--')
+                    plt.tight_layout()
+                    st.pyplot(fig_pca)
+
+                    with st.expander("Model Information", expanded=True):
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.metric("PCA Components", models['ipca'].n_components_)
+                        with col2:
+                            cumulative_variance = np.cumsum(models['ipca'].explained_variance_ratio_)
+                            total_variance = cumulative_variance[-1] if len(cumulative_variance) > 0 else 0
+                            st.metric("Variance Explained", f"{total_variance*100:.1f}%")
+                        with col3:
+                            total_models = sum(len(models['all_models'][param]) for param in models['all_models'])
+                            st.metric("Total Models", total_models)
+
+                    st.subheader("Loaded Models")
+                    param_names = ['logn', 'tex', 'velo', 'fwhm']
+                    for param in param_names:
+                        if param in models['all_models']:
+                            model_count = len(models['all_models'][param])
+                            st.write(f"{param}: {model_count} model(s) loaded")
+                    st.subheader("📊 PCA Variance Analysis")
+                    pca_fig = create_pca_variance_plot(models['ipca'])
+                    st.pyplot(pca_fig)
+
+                    buf = BytesIO()
+                    pca_fig.savefig(buf, format="png", dpi=300, bbox_inches='tight')
+                    buf.seek(0)
+                    st.download_button(
+                        label="📥 Download PCA variance plot",
+                        data=buf,
+                        file_name="pca_variance_analysis.png",
+                        mime="image/png"
+                    )
+
+                    subtab1, subtab2, subtab3, subtab4 = st.tabs(["Summary", "Model Performance", "Individual Plots", "Combined Plot"])
+                    with subtab1:
+                        st.subheader("Prediction Summary")
+                        
+                        summary_data = []
+                        for param, label in zip(results['param_names'], results['param_labels']):
+                            if param in results['predictions']:
+                                param_preds = results['predictions'][param]
+                                param_uncerts = results['uncertainties'].get(param, {})
+                                
+                                for model_name, pred_value in param_preds.items():
+                                    if model_name not in st.session_state.selected_models:
+                                        continue
+                                    
+                                    uncert_value = param_uncerts.get(model_name, np.nan)
+                                    summary_data.append({
+                                        'Parameter': label,
+                                        'Model': model_name,
+                                        'Prediction': pred_value,
+                                        'Uncertainty': uncert_value if not np.isnan(uncert_value) else 'N/A',
+                                        'Units': get_units(param),
+                                        'Relative_Error_%': (uncert_value / abs(pred_value) * 100) if pred_value != 0 and not np.isnan(uncert_value) else np.nan
+                                    })
+                        
+                        if summary_data:
+                            summary_df = pd.DataFrame(summary_data)
+                            st.dataframe(summary_df, use_container_width=True)
+                            
+                            csv = summary_df.to_csv(index=False)
+                            st.download_button(
+                                label="📥 Download results as CSV",
+                                data=csv,
+                                file_name=f"spectrum_predictions_{selected_filter}.csv",
+                                mime="text/csv"
+                            )
+                        else:
+                            st.warning("No predictions were generated for the selected models")
+                        
+                        st.subheader("Summary Plot with Expected Values")
+                        
+                        has_expected_values = any(
+                            st.session_state.expected_values[param]['value'] is not None 
+                            for param in param_names
+                        )
+                        
+                        if has_expected_values:
+                            st.info("Red line shows expected value with shaded uncertainty range")
+                        
+                        summary_fig = create_summary_plot(
+                            results['predictions'],
+                            results['uncertainties'],
+                            results['param_names'],
+                            results['param_labels'],
+                            st.session_state.selected_models,
+                            st.session_state.expected_values if has_expected_values else None
+                        )
+                        st.pyplot(summary_fig)
+                        
+                        buf = BytesIO()
+                        summary_fig.savefig(buf, format="png", dpi=300, bbox_inches='tight')
+                        buf.seek(0)
+                        
+                        st.download_button(
+                            label="📥 Download summary plot",
+                            data=buf,
+                            file_name=f"summary_predictions_{selected_filter}.png",
+                            mime="image/png"
+                        )
+                    
+                    with subtab2:
+                        st.subheader("📈 Model Performance Overview")
+                        st.info("Showing typical parameter ranges for each model type")
+                        create_model_performance_plots(models, st.session_state.selected_models, selected_filter)
+                    
+                    with subtab3:
+                        st.subheader("Prediction Plots by Parameter")
+                        for param, label in zip(results['param_names'], results['param_labels']):
+                            if param in results['predictions'] and results['predictions'][param]:
+                                fig = create_comparison_plot(
+                                    results['predictions'], 
+                                    results['uncertainties'], 
+                                    param, 
+                                    label, 
+                                    models.get('training_stats', {}),
+                                    selected_filter,  # <-- use selected_filter here
+                                    st.session_state.selected_models
+                                )
+                                st.pyplot(fig)
+
+                                buf = BytesIO()
+                                fig.savefig(buf, format="png", dpi=300, bbox_inches='tight')
+                                buf.seek(0)
+                                
+                                st.download_button(
+                                    label=f"📥 Download {label} plot",
+                                    data=buf,
+                                    file_name=f"prediction_{param}_{selected_filter}.png",
+                                    mime="image/png",
+                                    key=f"download_{param}_{selected_filter}"
+                                )
+                            else:
+                                st.warning(f"No predictions available for {label}")
+                    
+                    with subtab4:
+                        st.subheader("Combined Prediction Plot")
+                        
+
+                        fig = create_combined_plot(
+                            results['predictions'],
+                            results['uncertainties'],
+                            results['param_names'],
+                            results['param_labels'],
+                            selected_filter,  # <-- use selected_filter here
+                            st.session_state.selected_models
+                        )
+                        st.pyplot(fig)
+                        
+
+                        buf = BytesIO()
+                        fig.savefig(buf, format="png", dpi=300, bbox_inches='tight')
+                        buf.seek(0)
+                        
+                        st.download_button(
+                            label="📥 Download combined plot",
+                            data=buf,
+                            file_name=f"combined_predictions_{selected_filter}.png",
+                            mime="image/png"
+                        )
+    else:
+
+        if not spectrum_file:
+            st.info("👈 Please upload a spectrum file in the sidebar to get started.")
+        elif not models_zip:
+            st.info("👈 Please upload trained models in the sidebar to get started.")
+        elif not st.session_state.filtered_spectra:
+            st.info("👈 Please generate filtered spectra using the 'Generate Filtered Spectra' button.")
+        
+        # Usage instructions
+        st.markdown("""
+        ## Usage Instructions:
+        
+        1. **Prepare trained models**: Compress all model files (.save) and statistics (.npy) into a ZIP file named "models.zip"
+        2. **Prepare spectrum**: Ensure your spectrum file is in text format with two columns (frequency, intensity)
+        3. **Upload files**: Use the selectors in the sidebar to upload both files or use the local models.zip file
+        4. **Select filter parameters**: Choose velocity, FWHM, and sigma values from available filters
+        5. **Generate filtered spectra**: Click the 'Generate Filtered Spectra' button to create filtered spectra
+        6. **Select models**: Choose which models to display in the results using the checkboxes
+        7. **Enter expected values (optional)**: Provide expected values and uncertainties for comparison
+        8. **Process**: Click the 'Process Spectrum' button to get predictions for all filtered spectra
+        """)
 
 if __name__ == "__main__":
     main()
-
