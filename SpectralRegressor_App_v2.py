@@ -226,10 +226,8 @@ def get_param_label(param):
     return labels.get(param, param)
 
 def create_pca_variance_plot(ipca_model):
-    """Create PCA variance explained plot"""
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
     
-    # Plot cumulative explained variance
     cumulative_variance = np.cumsum(ipca_model.explained_variance_ratio_)
     n_components = len(cumulative_variance)
     
@@ -240,14 +238,12 @@ def create_pca_variance_plot(ipca_model):
     ax1.grid(True, alpha=0.3)
     ax1.set_ylim(0, 1.05)
     
-    # Highlight the current number of components used
     current_components = ipca_model.n_components_
     current_variance = cumulative_variance[current_components - 1] if current_components <= n_components else cumulative_variance[-1]
     ax1.axvline(x=current_components, color='r', linestyle='--', alpha=0.8, label=f'Current: {current_components} comp.')
     ax1.axhline(y=current_variance, color='r', linestyle='--', alpha=0.8)
     ax1.legend()
     
-    # Plot individual explained variance
     individual_variance = ipca_model.explained_variance_ratio_
     ax2.bar(range(1, n_components + 1), individual_variance, alpha=0.7, color='green')
     ax2.set_xlabel('PCA Component Number', fontfamily='Times New Roman', fontsize=12)
@@ -255,7 +251,6 @@ def create_pca_variance_plot(ipca_model):
     ax2.set_title('Individual Variance per Component', fontfamily='Times New Roman', fontsize=14, fontweight='bold')
     ax2.grid(True, alpha=0.3)
     
-    # Add text with variance information
     total_variance = cumulative_variance[-1] if n_components > 0 else 0
     plt.figtext(0.5, 0.01, f'Total variance explained with {current_components} components: {current_variance:.3f} ({current_variance*100:.1f}%)', 
                 ha='center', fontfamily='Times New Roman', fontsize=12, 
@@ -1109,6 +1104,18 @@ def main():
                     )
 
                     st.plotly_chart(fig, use_container_width=True)
+
+                    # Show PCA representation of the spectrum
+                    st.subheader("Spectrum in PCA Space")
+                    pca_components = results['processed_spectrum']['pca_components'].flatten()
+                    fig_pca, ax_pca = plt.subplots(figsize=(10, 4))
+                    ax_pca.plot(np.arange(1, len(pca_components)+1), pca_components, marker='o', color='purple')
+                    ax_pca.set_xlabel("PCA Component", fontfamily='Times New Roman', fontsize=14)
+                    ax_pca.set_ylabel("Value", fontfamily='Times New Roman', fontsize=14)
+                    ax_pca.set_title("Spectrum Representation in PCA Space", fontfamily='Times New Roman', fontsize=16, fontweight='bold')
+                    ax_pca.grid(alpha=0.3, linestyle='--')
+                    plt.tight_layout()
+                    st.pyplot(fig_pca)
 
                     subtab1, subtab2, subtab3, subtab4 = st.tabs(["Summary", "Model Performance", "Individual Plots", "Combined Plot"])
                     with subtab1:
