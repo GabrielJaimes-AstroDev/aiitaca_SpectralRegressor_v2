@@ -980,6 +980,14 @@ def main():
                     index=0,
                     help="Select sigma parameter from available filters"
                 )
+
+                # Botón para considerar líneas de absorción (permitir valores negativos)
+                consider_absorption = st.checkbox(
+                    "Consider absorption lines (allow negative values)", 
+                    value=False, 
+                    help="Allow negative values in filtered spectra"
+                )
+                st.session_state.consider_absorption = consider_absorption
                 
                 # Store selected parameters
                 st.session_state.filter_params = {
@@ -1005,7 +1013,8 @@ def main():
                                 filters_dir, 
                                 selected_velocity, 
                                 selected_fwhm, 
-                                selected_sigma
+                                selected_sigma,
+                                allow_negative=st.session_state.consider_absorption  # <-- Añade este argumento
                             )
                             
                             # Clean up temporary spectrum file
