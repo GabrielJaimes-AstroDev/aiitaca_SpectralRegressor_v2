@@ -1116,4 +1116,6 @@ def main():
             )
             st.plotly_chart(fig_pca_bar, use_container_width=True)
 
-# ...existing code for filtered spectrum selection and analysis...
+if __name__ == "__main__":
+    main()
+
