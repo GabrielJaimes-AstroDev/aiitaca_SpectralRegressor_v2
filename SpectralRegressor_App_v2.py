@@ -1139,7 +1139,7 @@ def main():
                 else:
                     st.header(f"📊 Prediction Results for {selected_filter}")
 
-                    # Plot interactivo del espectro filtrado
+                    # Plot interactivo del espectro filtrado con estilo formal
                     filtered_freqs = results['processed_spectrum']['frequencies']
                     filtered_intensities = results['processed_spectrum']['intensities']
 
@@ -1155,11 +1155,22 @@ def main():
                     ))
                     fig.update_layout(
                         title="Filtered Spectrum",
-                        xaxis_title="Frequency",
-                        yaxis_title="Intensity",
+                        xaxis_title="Frequency (GHz)",
+                        yaxis_title="Intensity (K)",
                         template="simple_white",
-                        height=400
+                        font=dict(family="Times New Roman", size=16),
+                        height=700,
+                        xaxis=dict(showgrid=True, gridcolor='lightgray'),
+                        yaxis=dict(showgrid=True, gridcolor='lightgray')
                     )
+                    fig.update_xaxes(showgrid=True, gridcolor='lightgray')
+                    fig.update_yaxes(showgrid=True, gridcolor='lightgray')
+
+                    # Botón para activar/desactivar grid
+                    show_grid = st.toggle("Show grid", value=True)
+                    fig.update_xaxes(showgrid=show_grid)
+                    fig.update_yaxes(showgrid=show_grid)
+
                     st.plotly_chart(fig, use_container_width=True)
 
                     # Subtabs for visualizations
