@@ -854,8 +854,8 @@ def apply_filter_to_spectrum(spectrum_path, filter_path, output_dir):
         st.error(f"Error applying filter {os.path.basename(filter_path)}: {str(e)}")
         return None, False
 
-def generate_filtered_spectra(spectrum_file, filters_dir, selected_velocity, selected_fwhm, selected_sigma):
-    """Generate filtered spectra based on selected parameters"""
+def generate_filtered_spectra(spectrum_file, filters_dir, selected_velocity, selected_fwhm, selected_sigma, allow_negative=False):
+    """Generate filtered spectra based on selected parameters and absorption option"""
     # Create temporary directory for filtered spectra
     temp_dir = tempfile.mkdtemp()
     
