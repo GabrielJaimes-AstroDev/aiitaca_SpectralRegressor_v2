@@ -18,6 +18,7 @@ import gc
 from glob import glob
 import plotly.graph_objects as go
 
+
 # Set global font settings
 plt.rcParams['font.family'] = 'Times New Roman'
 plt.rcParams['font.size'] = 12
@@ -1103,12 +1104,44 @@ def main():
                 if results is None:
                     st.error(f"Error processing the filtered spectrum: {selected_filter}")
                 else:
+                    
+                    with st.expander("Model Information", expanded=True):
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.metric("PCA Components", models['ipca'].n_components_)
+                        with col2:
+                            cumulative_variance = np.cumsum(models['ipca'].explained_variance_ratio_)
+                            total_variance = cumulative_variance[-1] if len(cumulative_variance) > 0 else 0
+                            st.metric("Variance Explained", f"{total_variance*100:.1f}%")
+                        with col3:
+                            total_models = sum(len(models['all_models'][param]) for param in models['all_models'])
+                            st.metric("Total Models", total_models)
+
+                    st.subheader("Loaded Models")
+                    param_names = ['logn', 'tex', 'velo', 'fwhm']
+                    for param in param_names:
+                        if param in models['all_models']:
+                            model_count = len(models['all_models'][param])
+                            st.write(f"{param}: {model_count} model(s) loaded")
+                    st.subheader("📊 PCA Variance Analysis")
+                    pca_fig = create_pca_variance_plot(models['ipca'])
+                    st.pyplot(pca_fig)
+
+                    buf = BytesIO()
+                    pca_fig.savefig(buf, format="png", dpi=300, bbox_inches='tight')
+                    buf.seek(0)
+                    st.download_button(
+                        label="📥 Download PCA variance plot",
+                        data=buf,
+                        file_name="pca_variance_analysis.png",
+                        mime="image/png"
+                    )
+                    
                     st.header(f"📊 Prediction Results for {selected_filter}")
 
                     filtered_freqs = results['processed_spectrum']['frequencies']
                     filtered_intensities = results['processed_spectrum']['intensities']
 
-                    import plotly.graph_objects as go
 
                     fig = go.Figure()
                     fig.add_trace(go.Scatter(
@@ -1178,37 +1211,6 @@ def main():
                     )
                     st.plotly_chart(fig_pca_bar, use_container_width=True)
 
-                    with st.expander("Model Information", expanded=True):
-                        col1, col2, col3 = st.columns(3)
-                        with col1:
-                            st.metric("PCA Components", models['ipca'].n_components_)
-                        with col2:
-                            cumulative_variance = np.cumsum(models['ipca'].explained_variance_ratio_)
-                            total_variance = cumulative_variance[-1] if len(cumulative_variance) > 0 else 0
-                            st.metric("Variance Explained", f"{total_variance*100:.1f}%")
-                        with col3:
-                            total_models = sum(len(models['all_models'][param]) for param in models['all_models'])
-                            st.metric("Total Models", total_models)
-
-                    st.subheader("Loaded Models")
-                    param_names = ['logn', 'tex', 'velo', 'fwhm']
-                    for param in param_names:
-                        if param in models['all_models']:
-                            model_count = len(models['all_models'][param])
-                            st.write(f"{param}: {model_count} model(s) loaded")
-                    st.subheader("📊 PCA Variance Analysis")
-                    pca_fig = create_pca_variance_plot(models['ipca'])
-                    st.pyplot(pca_fig)
-
-                    buf = BytesIO()
-                    pca_fig.savefig(buf, format="png", dpi=300, bbox_inches='tight')
-                    buf.seek(0)
-                    st.download_button(
-                        label="📥 Download PCA variance plot",
-                        data=buf,
-                        file_name="pca_variance_analysis.png",
-                        mime="image/png"
-                    )
 
                     subtab1, subtab2, subtab3, subtab4 = st.tabs(["Summary", "Model Performance", "Individual Plots", "Combined Plot"])
                     with subtab1:
