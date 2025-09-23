@@ -642,7 +642,11 @@ def create_combined_plot(predictions, uncertainties, param_names, param_labels, 
             if model_name in selected_models:
                 filtered_models.append(model_name)
                 filtered_values.append(pred_value)
-                filtered_errors.append(param_uncerts.get(model_name, 0))
+                err = param_uncerts.get(model_name, 0.0)
+                # Sanear errores NaN/None/no numéricos
+                if err is None or not (isinstance(err, (int, float)) and np.isfinite(err)):
+                    err = 0.0
+                filtered_errors.append(err)
         
         if not filtered_models:
             ax.text(0.5, 0.5, 'No selected models for this parameter', 
@@ -652,8 +656,10 @@ def create_combined_plot(predictions, uncertainties, param_names, param_labels, 
             continue
 
         x_pos = np.arange(len(filtered_models))
-        bars = ax.bar(x_pos, filtered_values, yerr=filtered_errors, capsize=8, alpha=0.8, 
-                     color=colors[:len(filtered_models)], edgecolor='black', linewidth=1)
+        # Solo mostrar barras de error para Random Forest
+        error_array = [err if name.lower() == 'randomforest' else 0.0 for name, err in zip(filtered_models, filtered_errors)]
+        bars = ax.bar(x_pos, filtered_values, yerr=error_array, capsize=8, alpha=0.8, 
+                      color=colors[:len(filtered_models)], edgecolor='black', linewidth=1)
         
         param_label = get_param_label(param)
         units = get_units(param)
@@ -661,18 +667,29 @@ def create_combined_plot(predictions, uncertainties, param_names, param_labels, 
         ax.set_xlabel('Model', fontfamily='Times New Roman', fontsize=12)
         ax.set_ylabel(f'Predicted Value {param_label} ({units})', fontfamily='Times New Roman', fontsize=12)
         ax.set_title(f'{param_label} Predictions with Uncertainty', 
-                    fontfamily='Times New Roman', fontsize=14, fontweight='bold')
+                     fontfamily='Times New Roman', fontsize=14, fontweight='bold')
         ax.set_xticks(x_pos)
         ax.set_xticklabels(filtered_models, rotation=45, ha='right', fontsize=10)
         ax.grid(alpha=0.3, axis='y', linestyle='--')
         
-        # Add value labels on bars
-        for i, (bar, value, error) in enumerate(zip(bars, filtered_values, filtered_errors)):
+        # Ajustar ylim usando exactamente los errores que se pintan (error_array)
+        ylim = ax.get_ylim()
+        y_max = max([bar.get_height() + err for bar, err in zip(bars, error_array)] + [ylim[1]])
+        ax.set_ylim(ylim[0], y_max + 0.15 * abs(y_max))
+
+        # Add value labels on bars (± solo para RandomForest)
+        for i, (bar, value, err, name) in enumerate(zip(bars, filtered_values, error_array, filtered_models)):
             height = bar.get_height()
-            ax.text(bar.get_x() + bar.get_width()/2., height + error + 0.1,
-                   f'{value:.3f} ± {error:.3f}', ha='center', va='bottom', 
-                   fontweight='bold', fontsize=9, bbox=dict(boxstyle="round,pad=0.3", 
-                   facecolor="yellow", alpha=0.7))
+            y_text = height + err + 0.1
+            va = 'bottom'
+            if y_text > ax.get_ylim()[1]:
+                y_text = height - err - 0.1
+                va = 'top'
+            label_text = f'{value:.3f} ± {err:.3f}' if name.lower() == 'randomforest' and err != 0 else f'{value:.3f}'
+            ax.text(bar.get_x() + bar.get_width()/2., y_text,
+                    label_text, ha='center', va=va, 
+                    fontweight='bold', fontsize=9, bbox=dict(boxstyle="round,pad=0.3", 
+                    facecolor="yellow", alpha=0.7), clip_on=True)
     
     plt.suptitle(f'Parameter Predictions with Uncertainty for Spectrum: {spectrum_name}', 
                 fontfamily='Times New Roman', fontsize=16, fontweight='bold')
@@ -704,7 +721,11 @@ def create_summary_plot(predictions, uncertainties, param_names, param_labels, s
             if model_name in selected_models:
                 filtered_models.append(model_name)
                 filtered_values.append(pred_value)
-                filtered_errors.append(param_uncerts.get(model_name, 0))
+                err = param_uncerts.get(model_name, 0.0)
+                # Sanear errores NaN/None/no numéricos
+                if err is None or not (isinstance(err, (int, float)) and np.isfinite(err)):
+                    err = 0.0
+                filtered_errors.append(err)
                 filtered_colors.append(model_colors.get(model_name, '#9467bd'))  # Púrpura por defecto
         
         if not filtered_models:
@@ -715,8 +736,10 @@ def create_summary_plot(predictions, uncertainties, param_names, param_labels, s
             continue
 
         x_pos = np.arange(len(filtered_models))
-        bars = ax.bar(x_pos, filtered_values, yerr=filtered_errors, capsize=8, alpha=0.8, 
-                     color=filtered_colors, edgecolor='black', linewidth=1)
+        # Solo agregar barras de error para Random Forest
+        error_array = [err if name.lower() == 'randomforest' else 0.0 for name, err in zip(filtered_models, filtered_errors)]
+        bars = ax.bar(x_pos, filtered_values, yerr=error_array, capsize=8, alpha=0.8, 
+                      color=filtered_colors, edgecolor='black', linewidth=1)
         
         param_label = get_param_label(param)
         units = get_units(param)
@@ -724,29 +747,37 @@ def create_summary_plot(predictions, uncertainties, param_names, param_labels, s
         if expected_values and param in expected_values and expected_values[param]['value'] is not None:
             exp_value = expected_values[param]['value']
             exp_error = expected_values[param].get('error', 0)
-            
-
             ax.axhline(y=exp_value, color='red', linestyle='-', linewidth=2, alpha=0.8, label='Expected value')
-
-            if exp_error > 0:
+            if exp_error and isinstance(exp_error, (int, float)) and np.isfinite(exp_error) and exp_error > 0:
                 ax.axhspan(exp_value - exp_error, exp_value + exp_error, 
                           alpha=0.2, color='red', label='Expected range')
         
         ax.set_xlabel('Model', fontfamily='Times New Roman', fontsize=12)
         ax.set_ylabel(f'Predicted Value {param_label} ({units})', fontfamily='Times New Roman', fontsize=12)
         ax.set_title(f'{param_label} Predictions', 
-                    fontfamily='Times New Roman', fontsize=14, fontweight='bold')
+                     fontfamily='Times New Roman', fontsize=14, fontweight='bold')
         ax.set_xticks(x_pos)
         ax.set_xticklabels(filtered_models, rotation=45, ha='right', fontsize=10)
         ax.grid(alpha=0.3, axis='y', linestyle='--')
         
-        # Add value labels on bars
-        for i, (bar, value, error) in enumerate(zip(bars, filtered_values, filtered_errors)):
+        # Ajustar ylim usando exactamente los errores que se pintan (error_array)
+        ylim = ax.get_ylim()
+        y_max = max([bar.get_height() + err for bar, err in zip(bars, error_array)] + [ylim[1]])
+        ax.set_ylim(ylim[0], y_max + 0.15 * abs(y_max))
+
+        # Add value labels on bars (± solo para RandomForest)
+        for i, (bar, value, err, name) in enumerate(zip(bars, filtered_values, error_array, filtered_models)):
             height = bar.get_height()
-            ax.text(bar.get_x() + bar.get_width()/2., height + error + 0.1,
-                   f'{value:.3f} ± {error:.3f}', ha='center', va='bottom', 
-                   fontweight='bold', fontsize=9, bbox=dict(boxstyle="round,pad=0.3", 
-                   facecolor="yellow", alpha=0.7))
+            y_text = height + err + 0.1
+            va = 'bottom'
+            if y_text > ax.get_ylim()[1]:
+                y_text = height - err - 0.1
+                va = 'top'
+            label_text = f'{value:.3f} ± {err:.3f}' if name.lower() == 'randomforest' and err != 0 else f'{value:.3f}'
+            ax.text(bar.get_x() + bar.get_width()/2., y_text,
+                    label_text, ha='center', va=va, 
+                    fontweight='bold', fontsize=9, bbox=dict(boxstyle="round,pad=0.3", 
+                    facecolor="yellow", alpha=0.7), clip_on=True)
         
         # Add legend if expected value is shown
         if expected_values and param in expected_values and expected_values[param]['value'] is not None:
